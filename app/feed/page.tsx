@@ -6,6 +6,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import ProfileAvatar from '../../components/current-user-avatar'
+import CurrentUserAvatar from "../../components/current-user-avatar";
+
 
 type Course = { id: number; code: string; name: string };
 type PostRow = {
@@ -19,8 +22,9 @@ type PostRow = {
 };
 
 export default function FeedPage() {
+  
   const router = useRouter();
-
+  const [search, setSearch] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState<number | "">("");
   const [posts, setPosts] = useState<PostRow[]>([]);
@@ -58,29 +62,34 @@ export default function FeedPage() {
     })();
   }, []);
 
-  async function loadPosts(selectedCourseId?: number | "") {
-    setStatus("");
+  async function loadPosts(selectedCourseId?: number | "", searchText?: string) {
+  setStatus("");
 
-    let q = supabase
-      .from("post_vote_counts")
-      .select("id,course_id,title,body,file_path,created_at,upvotes")
-      .order("created_at", { ascending: false })
-      .limit(50);
+  let q = supabase
+    .from("post_vote_counts")
+    .select("id,course_id,title,body,file_path,created_at,upvotes")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
+  if (selectedCourseId) q = q.eq("course_id", selectedCourseId);
 
-    if (selectedCourseId) {
-        q = q.eq("course_id", selectedCourseId);
-    }
-
-    const { data, error } = await q;
-    if (error) setStatus(`Error loading posts: ${error.message}`);
-    else setPosts((data as PostRow[]) ?? []);
+  const s = (searchText ?? "").trim();
+  if (s) {
+    // searches title OR body (case-insensitive)
+    // note: body can be null, that's fine
+    q = q.or(`title.ilike.%${s}%,body.ilike.%${s}%`);
   }
 
+  const { data, error } = await q;
+  if (error) setStatus(`Error loading posts: ${error.message}`);
+  else setPosts((data as PostRow[]) ?? []);
+}
+
   useEffect(() => {
-    loadPosts(courseId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]);
+  loadPosts(courseId, search);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, search]);
+
 
   const postsWithUrls = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -100,6 +109,7 @@ export default function FeedPage() {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
         <h1 style={{ fontSize: 24, fontWeight: 600 }}>Feed</h1>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <CurrentUserAvatar />
           {userEmail && <span style={{ fontSize: 12, opacity: 0.8 }}>{userEmail}</span>}
           <button onClick={signOut} style={{ padding: "8px 10px", borderRadius: 10, fontWeight: 700 }}>
             Sign out
