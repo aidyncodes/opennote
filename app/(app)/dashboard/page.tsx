@@ -94,11 +94,33 @@ export default function DashboardPage() {
 
   return (
     <>
-      <h1>Dashboard</h1>
 
-      <p style={{ marginTop: 12, fontSize: 18 }}>
-        {name ? `Welcome, ${name}` : "Loading..."}
-      </p>
+      {/* Welcome row with right-aligned button */}
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <p style={{ fontSize: 18, margin: 0 }}>
+          {name ? `Welcome, ${name}` : "Loading..."}
+        </p>
+
+        <button
+          style={{
+            padding: "8px 14px",
+            borderRadius: 8,
+            border: "1px solid rgba(0,0,0,0.15)",
+            background: "rgba(255,255,255,0.6)",
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        >
+          My Library
+        </button>
+      </div>
 
       {/* YOUR POSTS */}
       <section style={{ marginTop: 32 }}>
