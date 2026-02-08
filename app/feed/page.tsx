@@ -191,45 +191,40 @@ export default function FeedPage() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#f6f7fb",
+        background: "#cdc66b",
         padding: 24,
       }}
     >
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
-        {/* Top bar */}
-        <div
+        {/*nav bar*/}
+      <div
           style={{
-            background: "white",
-            border: "1px solid #e7e7ee",
-            borderRadius: 16,
-            padding: 16,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             gap: 12,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
           }}
         >
+
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Feed</h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13, opacity: 0.75 }}>
-              Browse notes by course and discover recent uploads.
-            </p>
+            <h1 className="imperial-script-regular" style={{ margin: 0, fontSize: 50 }}>
+            Noteify</h1>
           </div>
 
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <div
+            <button
+              onClick={() => router.push("/dashboard")}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: "8px 10px",
+                padding: "8px 12px",
                 background: "#fafafe",
                 border: "1px solid #ececf5",
                 borderRadius: 999,
+                cursor: "pointer",
               }}
             >
-              <CurrentUserAvatar />
               {userEmail && (
                 <span
                   style={{
@@ -238,13 +233,14 @@ export default function FeedPage() {
                     maxWidth: 240,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    fontWeight: 700,
                   }}
                 >
                   {userEmail}
                 </span>
               )}
-            </div>
-
+            </button>
             <button
               onClick={signOut}
               style={{
@@ -258,6 +254,30 @@ export default function FeedPage() {
             >
               Sign out
             </button>
+          </div>
+        </div>
+
+        {/* Top bar */}
+        <div
+          style={{
+            background: "white",
+            border: "1px solid #e7e7ee",
+            borderRadius: 16,
+            padding: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+            marginTop: 14,
+            
+          }}
+        >
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Feed</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, opacity: 0.75 }}>
+              Browse notes by course and discover recent uploads.
+            </p>
           </div>
         </div>
 
