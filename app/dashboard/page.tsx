@@ -3,14 +3,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
-type Course = { id: number; code: string; name: string };
+type Course = {
+  id: string; // uuid
+  code: string;
+  professor: string | null;
+  school: string | null;
+};
 
 type PostRow = {
-  id: number;
-  user_id: string;
-  course_id: number;
+  id: string; // uuid
+  author_id: string; // uuid
+  course_id: string; // uuid
   title: string;
-  body: string | null;
+  body: string;
   file_path: string | null;
   created_at: string;
 };
@@ -20,7 +25,7 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const [courses, setCourses] = useState<Course[]>([]);
-  const [courseId, setCourseId] = useState<number | "">("");
+  const [courseId, setCourseId] = useState<string>("");
 
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
@@ -52,15 +57,16 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  // Load courses for dropdown
+  // Load courses for dropdown (matches your schema)
   useEffect(() => {
     const loadCourses = async () => {
       const { data, error } = await supabase
         .from("courses")
-        .select("id, code, name")
+        .select("id, code, professor, school")
         .order("code", { ascending: true });
 
-      if (!error && data) setCourses(data as Course[]);
+      if (error) return;
+      setCourses((data as Course[]) ?? []);
     };
 
     loadCourses();
@@ -72,8 +78,8 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from("posts")
-      .select("id, user_id, course_id, title, body, file_path, created_at")
-      .eq("user_id", uid)
+      .select("id, author_id, course_id, title, body, file_path, created_at")
+      .eq("author_id", uid)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -114,11 +120,11 @@ export default function DashboardPage() {
 
     const { error } = await supabase.from("posts").insert([
       {
-        user_id: userId,
-        course_id: courseId,          // ✅ REQUIRED by your schema
+        author_id: userId,
+        course_id: courseId,
         title: cleanTitle,
-        body: cleanBody || null,
-        file_path: null,              // optional for now
+        body: cleanBody || "", // your schema says body NOT NULL
+        file_path: null,
       },
     ]);
 
@@ -137,60 +143,28 @@ export default function DashboardPage() {
   };
 
   return (
-    <main style={{ padding: 24, maxWidth: 900 }}>
+  <div
+    style={{
+      minHeight: "100vh",
+      width: "100vw",
+      backgroundColor: "#cdc66b",
+      display: "flex",
+      justifyContent: "center",
+    }}
+  >
+    <main
+      style={{
+        padding: 24,
+        maxWidth: 900,
+        width: "100%",
+      }}
+    >
+
       <h1>Dashboard</h1>
 
       <p style={{ marginTop: 12, fontSize: 18 }}>
         {name ? `Welcome, ${name}` : "Loading..."}
       </p>
-
-      {/* CREATE POST */}
-      <section style={{ marginTop: 28 }}>
-        <h2 style={{ fontSize: 20, marginBottom: 12 }}>Create a new post</h2>
-
-        <form onSubmit={createPost} style={{ display: "grid", gap: 10 }}>
-          {/* ✅ Course picker */}
-          <select
-            value={courseId}
-            onChange={(e) =>
-              setCourseId(e.target.value ? Number(e.target.value) : "")
-            }
-            style={{ padding: 10, fontSize: 16 }}
-          >
-            <option value="">Select a course</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.name}
-              </option>
-            ))}
-          </select>
-
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Post title"
-            style={{ padding: 10, fontSize: 16 }}
-          />
-
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Write something (optional)"
-            rows={4}
-            style={{ padding: 10, fontSize: 16 }}
-          />
-
-          {createError && <p style={{ color: "red", margin: 0 }}>{createError}</p>}
-
-          <button
-            type="submit"
-            disabled={creating || !userId}
-            style={{ padding: "10px 14px", fontSize: 16, width: "fit-content" }}
-          >
-            {creating ? "Posting..." : "Post"}
-          </button>
-        </form>
-      </section>
 
       {/* YOUR POSTS */}
       <section style={{ marginTop: 32 }}>
@@ -211,6 +185,7 @@ export default function DashboardPage() {
                 border: "1px solid #ddd",
                 borderRadius: 10,
                 padding: 14,
+                background: "rgba(255,255,255,0.75)",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -230,5 +205,6 @@ export default function DashboardPage() {
         </div>
       </section>
     </main>
+    </div>
   );
 }

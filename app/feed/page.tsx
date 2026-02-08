@@ -171,7 +171,6 @@ export default function FeedPage() {
 
   useEffect(() => {
     loadPosts(courseId, search);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, search]);
 
   const postsWithUrls = useMemo(() => {
@@ -205,7 +204,6 @@ export default function FeedPage() {
             gap: 12,
           }}
         >
-
           <div>
             <h1 className="imperial-script-regular" style={{ margin: 0, fontSize: 50 }}>
             Noteify</h1>
