@@ -276,7 +276,6 @@ export default function UploadPage() {
   />
 </label>
 
-
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontWeight: 800, fontSize: 13 }}>File (PDF or image)</span>
             <input

@@ -142,7 +142,6 @@ export default function FeedPage() {
       .order("created_at", { ascending: false })
       .limit(50);
 
-    // ✅ reliable filter: posts whose course_id is in the set of ids for that code
     if (courseIds) {
       q = q.in("course_id", courseIds);
     }
@@ -162,7 +161,6 @@ export default function FeedPage() {
 
     const rows: PostWithCourse[] = postData ?? [];
 
-    // Fetch upvotes for these posts and count in JS
     const postIds = rows.map((r) => r.id);
     const counts = new Map<string, number>();
 
@@ -191,7 +189,6 @@ export default function FeedPage() {
       created_at: r.created_at,
       upvotes: counts.get(r.id) ?? 0,
 
-      // show code primarily; prof/school optional
       course_code: r.courses?.code ?? "Unknown course",
       course_professor: r.courses?.professor ?? null,
       course_school: r.courses?.school ?? null,
@@ -202,7 +199,6 @@ export default function FeedPage() {
 
   useEffect(() => {
     loadPosts(courseCode, search);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseCode, search]);
 
   const postsWithUrls = useMemo(() => {
