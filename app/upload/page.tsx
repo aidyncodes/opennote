@@ -1,9 +1,10 @@
 // app/upload/page.tsx
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { summarizeFile } from '../ai/geminiService';
+
 
 function normalizeCourseCode(input: string) {
   return input
@@ -15,14 +16,15 @@ function normalizeCourseCode(input: string) {
 
 export default function UploadPage() {
   const router = useRouter();
-
   const [courseCode, setCourseCode] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [file, setFile] = useState<File | null>(null);
-
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
+    const [aiSummary, setAiSummary] = useState("");
+    const [aiLoading, setAiLoading] = useState(false);
+
 
   // Protect this page: must be logged in
   useEffect(() => {
@@ -47,6 +49,33 @@ export default function UploadPage() {
     if (f.size > maxBytes) return "File too large (max 15MB).";
     return null;
   }
+
+  async function handleAiSummarize() {
+  setStatus("");
+
+  if (!file) {
+    setStatus("Please attach a PDF or image first.");
+    return;
+  }
+
+  const fileErr = validateFile(file);
+  if (fileErr) {
+    setStatus(fileErr);
+    return;
+  }
+
+  setAiLoading(true);
+  try {
+    const summary = await summarizeFile(file);
+    setBody(summary); // <- puts the AI summary into your Body textarea
+    // optional: setStatus("AI summary added to Body.");
+  } catch (err: any) {
+    setStatus(err?.message ?? "Failed to summarize with AI.");
+  } finally {
+    setAiLoading(false);
+  }
+}
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -201,24 +230,47 @@ export default function UploadPage() {
             />
           </label>
 
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 800, fontSize: 13 }}>Body</span>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Describe what these notes cover…"
-              rows={5}
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid #ececf5",
-                background: "#fafafe",
-                fontWeight: 600,
-                outline: "none",
-                resize: "vertical",
-              }}
-            />
-          </label>
+<label style={{ display: "grid", gap: 6 }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <span style={{ fontWeight: 800, fontSize: 13 }}>Body</span>
+
+    <button
+      type="button"
+      onClick={handleAiSummarize}
+      disabled={!file || aiLoading}
+      style={{
+        padding: "8px 10px",
+        borderRadius: 10,
+        border: "1px solid #e7e7ee",
+        background: "white",
+        fontWeight: 900,
+        fontSize: 12,
+        cursor: !file || aiLoading ? "not-allowed" : "pointer",
+        opacity: !file || aiLoading ? 0.6 : 1,
+      }}
+      title={!file ? "Attach a file first" : "Generate a summary from the attached file"}
+    >
+      {aiLoading ? "Summarizing…" : "Summarize with AI"}
+    </button>
+  </div>
+
+  <textarea
+    value={body}
+    onChange={(e) => setBody(e.target.value)}
+    placeholder="Describe what these notes cover…"
+    rows={5}
+    style={{
+      padding: "10px 12px",
+      borderRadius: 12,
+      border: "1px solid #ececf5",
+      background: "#fafafe",
+      fontWeight: 600,
+      outline: "none",
+      resize: "vertical",
+    }}
+  />
+</label>
+
 
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontWeight: 800, fontSize: 13 }}>File (PDF or image)</span>
