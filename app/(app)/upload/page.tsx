@@ -2,8 +2,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
-import { summarizeFile } from '../ai/geminiService';
+import { supabase } from "../../../lib/supabaseClient";
+import { summarizeFile } from '../../ai/geminiService';
 
 
 function normalizeCourseCode(input: string) {
@@ -164,7 +164,7 @@ export default function UploadPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f6f7fb", padding: 24 }}>
+    <main style={{ minHeight: "100vh", background: "#cdc66b", padding: 24 }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div
           style={{
@@ -177,7 +177,7 @@ export default function UploadPage() {
         >
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Upload notes</h1>
           <p style={{ margin: "6px 0 0", fontSize: 13, opacity: 0.75 }}>
-            Attach a PDF or image and add a description. Course codes normalize (e.g. “cs 101” → “CS101”).
+            Attach a PDF or image and add a description. Course codes normalize (e.g. “csci 1302” → “CSCI1302”).
           </p>
         </div>
 
@@ -199,7 +199,7 @@ export default function UploadPage() {
             <input
               value={courseCode}
               onChange={(e) => setCourseCode(e.target.value)}
-              placeholder="e.g. CS101 or MATH241"
+              placeholder="e.g. CSCI1302 or MATH2000"
               autoComplete="off"
               style={{
                 padding: "10px 12px",

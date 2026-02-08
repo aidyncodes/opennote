@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient";
 
 type Course = {
-  id: string; // uuid
+  id: string;
   code: string;
   professor: string | null;
   school: string | null;
 };
 
 type PostRow = {
-  id: string; // uuid
-  author_id: string; // uuid
-  course_id: string; // uuid
+  id: string;
+  author_id: string;
+  course_id: string;
   title: string;
   body: string;
   file_path: string | null;
@@ -30,11 +30,6 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [postsError, setPostsError] = useState("");
-
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
 
   // Load user + display name
   useEffect(() => {
@@ -57,7 +52,7 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  // Load courses for dropdown (matches your schema)
+  // Load courses for dropdown
   useEffect(() => {
     const loadCourses = async () => {
       const { data, error } = await supabase
@@ -97,69 +92,8 @@ export default function DashboardPage() {
     fetchMyPosts(userId);
   }, [userId]);
 
-  const createPost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userId) return;
-
-    setCreating(true);
-    setCreateError("");
-
-    const cleanTitle = title.trim();
-    const cleanBody = body.trim();
-
-    if (!courseId) {
-      setCreateError("Please select a course.");
-      setCreating(false);
-      return;
-    }
-    if (!cleanTitle) {
-      setCreateError("Title is required.");
-      setCreating(false);
-      return;
-    }
-
-    const { error } = await supabase.from("posts").insert([
-      {
-        author_id: userId,
-        course_id: courseId,
-        title: cleanTitle,
-        body: cleanBody || "", // your schema says body NOT NULL
-        file_path: null,
-      },
-    ]);
-
-    if (error) {
-      setCreateError(error.message);
-      setCreating(false);
-      return;
-    }
-
-    setTitle("");
-    setBody("");
-    setCourseId("");
-    await fetchMyPosts(userId);
-
-    setCreating(false);
-  };
-
   return (
-  <div
-    style={{
-      minHeight: "100vh",
-      width: "100vw",
-      backgroundColor: "#cdc66b",
-      display: "flex",
-      justifyContent: "center",
-    }}
-  >
-    <main
-      style={{
-        padding: 24,
-        maxWidth: 900,
-        width: "100%",
-      }}
-    >
-
+    <>
       <h1>Dashboard</h1>
 
       <p style={{ marginTop: 12, fontSize: 18 }}>
@@ -174,7 +108,7 @@ export default function DashboardPage() {
         {postsError && <p style={{ color: "red" }}>{postsError}</p>}
 
         {!loadingPosts && !postsError && posts.length === 0 && (
-          <p>No posts yet. Create your first one above.</p>
+          <p>No posts yet.</p>
         )}
 
         <div style={{ display: "grid", gap: 12 }}>
@@ -199,12 +133,13 @@ export default function DashboardPage() {
                 Course ID: {p.course_id}
               </div>
 
-              {p.body && <p style={{ marginTop: 10, marginBottom: 0 }}>{p.body}</p>}
+              {p.body && (
+                <p style={{ marginTop: 10, marginBottom: 0 }}>{p.body}</p>
+              )}
             </article>
           ))}
         </div>
       </section>
-    </main>
-    </div>
+    </>
   );
 }
