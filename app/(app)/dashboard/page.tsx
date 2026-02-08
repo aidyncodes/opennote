@@ -73,7 +73,7 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from("posts")
-      .select("id, author_id, course_id, title, body, file_path, created_at")
+      .select("id, author_id, title, body, file_path, created_at")
       .eq("author_id", uid)
       .order("created_at", { ascending: false });
 
@@ -127,10 +127,6 @@ export default function DashboardPage() {
                 <small style={{ opacity: 0.7 }}>
                   {new Date(p.created_at).toLocaleString()}
                 </small>
-              </div>
-
-              <div style={{ marginTop: 6, opacity: 0.8 }}>
-                Course ID: {p.course_id}
               </div>
 
               {p.body && (
