@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import CurrentUserAvatar from "../../../components/current-user-avatar";
 
-type Course = {
-  id: string;
-  code: string;
-  professor: string | null;
-  school: string | null;
+type CourseCodeRow = { code: string };
+type CourseIdRow = { id: string };
+
+type CourseOption = {
+  code: string; // normalized
 };
 
 type PostRow = {
@@ -24,9 +23,6 @@ type PostRow = {
   course_code: string;
   course_professor: string | null;
   course_school: string | null;
-
-  author_id: string | null;
-  isMine?: boolean;
 };
 
 type PostWithCourse = {
@@ -36,7 +32,6 @@ type PostWithCourse = {
   body: string | null;
   file_path: string | null;
   created_at: string;
-  author_id: string | null;
   courses: {
     code: string;
     professor: string | null;
@@ -46,17 +41,25 @@ type PostWithCourse = {
 
 type UpvoteRow = { post_id: string };
 
+function normalizeCourseCode(input: string) {
+  return input
+    .trim()
+    .toUpperCase()
+    .replace(/[\s_-]+/g, "")
+    .replace(/[^A-Z0-9]/g, "");
+}
+
 export default function FeedPage() {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [courseId, setCourseId] = useState<string | "">("");
+  const [courseCode, setCourseCode] = useState<string>(""); // normalized code
+  const [courseOptions, setCourseOptions] = useState<CourseOption[]>([]);
+
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [status, setStatus] = useState("");
-  const [userId, setUserId] = useState<string | null>(null);
 
-  // Protect this page: if not logged in, go to login and capture user id
+  // Protect this page: if not logged in, go to login
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
@@ -64,40 +67,66 @@ export default function FeedPage() {
         router.replace("/");
         return;
       }
-      setUserId(data.user.id);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) router.replace("/");
-      else setUserId(session.user.id);
     });
 
     return () => sub.subscription.unsubscribe();
   }, [router]);
 
-  // Load courses
+  // Load unique, normalized course codes for dropdown
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("courses")
-        .select("id,code,professor,school")
-        .order("code");
+      const { data, error } = await supabase.from("courses").select("code").order("code");
 
-      if (error) setStatus(`Error loading courses: ${error.message}`);
-      else setCourses((data as Course[]) ?? []);
+      if (error) {
+        setStatus(`Error loading courses: ${error.message}`);
+        return;
+      }
+
+      const normalized = (data as CourseCodeRow[] | null)?.map((r) => normalizeCourseCode(r.code)) ?? [];
+      const uniqueCodes = Array.from(new Set(normalized)).filter(Boolean);
+
+      setCourseOptions(uniqueCodes.map((code) => ({ code })));
     })();
   }, []);
 
-  async function loadPosts(selectedCourseId?: string | "", searchText?: string) {
+  async function loadPosts(selectedCourseCode?: string, searchText?: string) {
     setStatus("");
 
-    // Include author_id in the select so we can detect user's posts
+    // If a course code is selected, translate it to all matching course_ids
+    let courseIds: string[] | null = null;
+
+    const code = (selectedCourseCode ?? "").trim();
+    if (code) {
+      const { data: idRows, error: idErr } = await supabase
+        .from("courses")
+        .select("id")
+        .eq("code", code) // assumes codes are stored normalized; if not, normalize your DB values
+        .returns<CourseIdRow[]>();
+
+      if (idErr) {
+        setStatus(`Error loading course ids: ${idErr.message}`);
+        setPosts([]);
+        return;
+      }
+
+      courseIds = (idRows ?? []).map((r) => r.id);
+
+      if (courseIds.length === 0) {
+        // No matching course rows => no posts can match either
+        setPosts([]);
+        return;
+      }
+    }
+
     let q = supabase
       .from("posts")
       .select(
         `
         id,
-        author_id,
         course_id,
         title,
         body,
@@ -113,10 +142,15 @@ export default function FeedPage() {
       .order("created_at", { ascending: false })
       .limit(50);
 
-    if (selectedCourseId) q = q.eq("course_id", selectedCourseId);
+    // ✅ reliable filter: posts whose course_id is in the set of ids for that code
+    if (courseIds) {
+      q = q.in("course_id", courseIds);
+    }
 
     const s = (searchText ?? "").trim();
-    if (s) q = q.or(`title.ilike.%${s}%,body.ilike.%${s}%`);
+    if (s) {
+      q = q.or(`title.ilike.%${s}%,body.ilike.%${s}%`);
+    }
 
     const { data: postData, error: postErr } = await q.returns<PostWithCourse[]>();
 
@@ -128,7 +162,7 @@ export default function FeedPage() {
 
     const rows: PostWithCourse[] = postData ?? [];
 
-    // Fetch upvote rows for these posts and count in JS
+    // Fetch upvotes for these posts and count in JS
     const postIds = rows.map((r) => r.id);
     const counts = new Map<string, number>();
 
@@ -157,28 +191,19 @@ export default function FeedPage() {
       created_at: r.created_at,
       upvotes: counts.get(r.id) ?? 0,
 
+      // show code primarily; prof/school optional
       course_code: r.courses?.code ?? "Unknown course",
       course_professor: r.courses?.professor ?? null,
       course_school: r.courses?.school ?? null,
-
-      author_id: r.author_id ?? null,
-      isMine: userId ? r.author_id === userId : false,
     }));
-
-    // Optional: put user's posts first, then the rest in chronological order
-    shaped.sort((a, b) => {
-      if ((a.isMine ? 1 : 0) !== (b.isMine ? 1 : 0)) return a.isMine ? -1 : 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
 
     setPosts(shaped);
   }
 
   useEffect(() => {
-    // whenever userId (or filters) change, reload posts so isMine is accurate
-    loadPosts(courseId, search);
+    loadPosts(courseCode, search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, search, userId]);
+  }, [courseCode, search]);
 
   const postsWithUrls = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -190,7 +215,7 @@ export default function FeedPage() {
 
   return (
     <>
-      {/* Top bar (kept here if you also show feed title block) */}
+      {/* Top bar */}
       <div
         style={{
           background: "white",
@@ -223,7 +248,7 @@ export default function FeedPage() {
           alignItems: "center",
         }}
       >
-        {/* Course filter */}
+        {/* Course filter (CODE ONLY) */}
         <div
           style={{
             background: "white",
@@ -237,8 +262,8 @@ export default function FeedPage() {
         >
           <span style={{ fontWeight: 800, fontSize: 13, opacity: 0.85 }}>Course</span>
           <select
-            value={courseId}
-            onChange={(e) => setCourseId(e.target.value || "")}
+            value={courseCode}
+            onChange={(e) => setCourseCode(e.target.value)}
             style={{
               padding: "10px 12px",
               borderRadius: 12,
@@ -249,11 +274,9 @@ export default function FeedPage() {
             }}
           >
             <option value="">All courses</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
+            {courseOptions.map((c) => (
+              <option key={c.code} value={c.code}>
                 {c.code}
-                {c.professor ? ` — ${c.professor}` : ""}
-                {c.school ? ` (${c.school})` : ""}
               </option>
             ))}
           </select>
@@ -331,7 +354,7 @@ export default function FeedPage() {
             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>Posts</h2>
             <p style={{ margin: "4px 0 0", fontSize: 12, opacity: 0.7 }}>
               Showing {postsWithUrls.length} most recent post{postsWithUrls.length === 1 ? "" : "s"}
-              {courseId ? " for this course" : ""}.
+              {courseCode ? ` for ${courseCode}` : ""}.
             </p>
           </div>
 
@@ -375,7 +398,7 @@ export default function FeedPage() {
                   border: "1px solid #ececf5",
                   borderRadius: 16,
                   padding: 16,
-                  background: p.isMine ? "#fffdf2" : "#ffffff", // subtle highlight for your posts
+                  background: "#ffffff",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
@@ -385,47 +408,27 @@ export default function FeedPage() {
                     </h3>
                     <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>
                       <span style={{ fontWeight: 800 }}>{p.course_code}</span>
-                      {p.course_professor ? ` — ${p.course_professor}` : ""}
-                      {p.course_school ? ` (${p.course_school})` : ""}
                       {" · "}
                       {new Date(p.created_at).toLocaleString()}
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div
-                      style={{
-                        flexShrink: 0,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "8px 10px",
-                        borderRadius: 999,
-                        border: "1px solid #ececf5",
-                        background: "#fafafe",
-                        fontWeight: 900,
-                        fontSize: 13,
-                      }}
-                      title="Upvotes"
-                    >
-                      ▲ {p.upvotes}
-                    </div>
-
-                    {p.isMine ? (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 800,
-                          padding: "6px 8px",
-                          borderRadius: 999,
-                          background: "#fff0d9",
-                          border: "1px solid #ffe3c4",
-                        }}
-                        title="Your post"
-                      >
-                        Your post
-                      </span>
-                    ) : null}
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 10px",
+                      borderRadius: 999,
+                      border: "1px solid #ececf5",
+                      background: "#fafafe",
+                      fontWeight: 900,
+                      fontSize: 13,
+                    }}
+                    title="Upvotes"
+                  >
+                    ▲ {p.upvotes}
                   </div>
                 </div>
 

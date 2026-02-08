@@ -108,18 +108,23 @@ export default function UploadPage() {
         return;
       }
 
-      // 1) Look up course by normalized code
-      const { data: course, error: courseErr } = await supabase
-        .from("courses")
-        .select("id,code,professor,school")
-        .eq("code", normalizedCourse)
-        .maybeSingle();
+  // 1) Look up course by code (robust: ignores spaces/hyphens/case; allows multiple professors)
+  const { data: candidates, error: courseErr } = await supabase
+    .from("courses")
+    .select("id,code,professor,school")
+    // broad match to reduce rows, then we normalize in JS for exactness
+    .ilike("code", `%${normalizedCourse}%`);
 
-      if (courseErr) throw courseErr;
-      if (!course) {
-        setStatus(`Course ${normalizedCourse} not found. Add it in Supabase first.`);
-        return;
-      }
+  if (courseErr) throw courseErr;
+
+  const course =
+    (candidates ?? []).find((c) => normalizeCourseCode(c.code) === normalizedCourse) ?? null;
+
+  if (!course) {
+    setStatus(`Course ${normalizedCourse} not found. Add it in Supabase first.`);
+    return;
+  }
+
 
       // 2) Create stable post id, upload file using that id
       const postId = crypto.randomUUID();
